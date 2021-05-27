@@ -1,0 +1,3 @@
+- [x] recovery related to age gender https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7229949/
+- [ ] death related to age gender..?
+- [ ] implement hospital?

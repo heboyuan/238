@@ -1,10 +1,5 @@
 import random
 
-# TODO:
-# 1. recovery related to age gender https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7229949/
-# 2. death related to age gender..?
-# 3. implement hospital?
-
 # how long does it take to heal from covid
 HEAL_TIME = 480
 # incubation period of covid
