@@ -1,4 +1,5 @@
 - [x] recovery related to age gender https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7229949/
 - [ ] accurate infection rate, mutate prob, etc
 - [ ] death related to age gender..?
+- [ ] add policy action and their result.
 - [ ] implement hospital?
