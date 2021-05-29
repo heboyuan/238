@@ -1,4 +1,5 @@
 import random
+from sympy import symbols, solve
 
 # how long does it take to heal from covid
 HEAL_TIME = 480
@@ -10,15 +11,17 @@ MUTATE_PROB = 10
 INFECTION_RATE = {"home": 100, "office": 40, "gym": 70}
 # id counter for location and people
 location_id, person_id = 0, 0
+# maximum possible age
+MAX_AGE = 100
 
-#death rate by age referenced by
-#https://www.cdph.ca.gov/Programs/CID/DCDC/Pages/COVID-19/COVID-19-Cases-by-Age-Group.aspx
+# death rate by age referenced by
+# https://www.cdph.ca.gov/Programs/CID/DCDC/Pages/COVID-19/COVID-19-Cases-by-Age-Group.aspx
 death_rate = dict()
-for age in range(100):
+for age in range(MAX_AGE):
     if age < 5:
-        death_rate[age] = 4/88089
+        death_rate[age] = 0
     elif age <= 17:
-        death_rate[age] = 19/390846
+        death_rate[age] = 0
     elif age <= 34:
         death_rate[age] = 0.014
     elif age <= 49:
@@ -33,6 +36,15 @@ for age in range(100):
         death_rate[age] = 0.116
     else:
         death_rate[age] = 0.392
+
+# calculate onetime probalility by (1-x)^(heal_time) = 1-total_death_rate
+death_prob = dict()
+for age in range(MAX_AGE):
+    x = symbols('x')
+    expr = (1-x)**HEAL_TIME + death_rate[age] - 1
+    sol = solve(expr)
+    death_prob[age] = sol[0]
+
 
 
 
@@ -66,7 +78,7 @@ class Person:
                 self.antibody = self.covid
                 self.covid = -1
             # die with possibility related to age
-            if random.random() <= death_rate[self.age]:
+            if random.random() <= death_prob[self.age]:
                 self.alive = False
         if self.infection_time < HIDDEN_TIME or self.covid < 0 :
             for time, location in self.actions:
