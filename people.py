@@ -11,6 +11,31 @@ INFECTION_RATE = {"home": 100, "office": 40, "gym": 70}
 # id counter for location and people
 location_id, person_id = 0, 0
 
+#death rate by age referenced by
+#https://www.cdph.ca.gov/Programs/CID/DCDC/Pages/COVID-19/COVID-19-Cases-by-Age-Group.aspx
+death_rate = dict()
+for age in range(100):
+    if age < 5:
+        death_rate[age] = 4/88089
+    elif age <= 17:
+        death_rate[age] = 19/390846
+    elif age <= 34:
+        death_rate[age] = 0.014
+    elif age <= 49:
+        death_rate[age] = 0.053
+    elif age <= 59:
+        death_rate[age] = 0.106
+    elif age <= 64:
+        death_rate[age] = 0.092
+    elif age <= 69:
+        death_rate[age] = 0.106
+    elif age <= 74:
+        death_rate[age] = 0.116
+    else:
+        death_rate[age] = 0.392
+
+
+
 class Person:
     def __init__(self, age, initial_location, actions, covid = -1):
         global person_id
@@ -40,6 +65,9 @@ class Person:
             if self.infection_time == HEAL_TIME:
                 self.antibody = self.covid
                 self.covid = -1
+            # die with possibility related to age
+            if random.random() <= death_rate[self.age]:
+                self.alive = False
         if self.infection_time < HIDDEN_TIME or self.covid < 0 :
             for time, location in self.actions:
                 if current_time == time:
