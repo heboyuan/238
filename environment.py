@@ -47,9 +47,8 @@ for age in range(MAX_AGE):
 
 
 
-
 class Person:
-    def __init__(self, age, initial_location, actions, covid = -1):
+    def __init__(self, gender, age, initial_location, actions, covid = -1):
         global person_id
         self.id = person_id
         person_id += 1
@@ -59,11 +58,42 @@ class Person:
 
         self.alive = True
         self.age = age
+        # 1 for male 0 for female
+        self.gender = gender
         self.vaccine = None
         self.covid = covid
         self.infection_time = -1
         self.antibody = -1
         self.actions = actions
+
+        # recover time from 
+        # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7229949/
+        if self.gender:
+            if self.age < 20:
+                self.recovery_time = 327
+            elif self.age < 30:
+                self.recovery_time = 327
+            elif self.age < 40:
+                self.recovery_time = 347
+            elif self.age < 50:
+                self.recovery_time = 355
+            elif self.age < 60:
+                self.recovery_time = 355
+            else:
+                self.recovery_time = 353
+        else:
+            if self.age < 20:
+                self.recovery_time = 318
+            elif self.age < 30:
+                self.recovery_time = 335
+            elif self.age < 40:
+                self.recovery_time = 340
+            elif self.age < 50:
+                self.recovery_time = 354
+            elif self.age < 60:
+                self.recovery_time = 340
+            else:
+                self.recovery_time = 336
         
     
     def act(self, current_time):
@@ -74,7 +104,7 @@ class Person:
             # start healing
             self.infection_time += 1
             # fully healed
-            if self.infection_time == HEAL_TIME:
+            if self.infection_time == self.recovery_time:
                 self.antibody = self.covid
                 self.covid = -1
             # die with possibility related to age
@@ -121,8 +151,8 @@ def main():
     home1 = Location("home")
     office0 = Location("office")
     gym0 = Location("gym")
-    person0 = Person(35, home0, [(9,office0), (17,gym0), (19,home0)], 6)
-    person1 = Person(35, home1, [(9,office0), (17,gym0), (19,home1)])
+    person0 = Person(1, 35, home0, [(9,office0), (17,gym0), (19,home0)], 6)
+    person1 = Person(0, 35, home1, [(9,office0), (17,gym0), (19,home1)])
 
     time = 0
     while True:
