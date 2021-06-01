@@ -1,8 +1,8 @@
 - [x] ~~recovery related to age gender https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7229949/~~
 - [x] death related to age gender..?
-- [ ] accurate infection rate, mutate prob, etc
 - [ ] add policy action and their result.
-    - [ ] shut down location
-    - [ ] mask mandate
+    - [x] ~~shut down location~~
+    - [x] mask mandate
     - [ ] more ?
-- [ ] implement hospital?
+- [ ] accurate infection rate, mutate prob, etc
+- [ ] add visualized output

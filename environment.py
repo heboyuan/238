@@ -4,7 +4,7 @@ from sympy import symbols, solve
 # how long does it take to heal from covid
 HEAL_TIME = 480
 # incubation period of covid
-HIDDEN_TIME = 100
+HIDDEN_TIME = 20
 # COVID mutate chance 
 MUTATE_PROB = 10
 # infection rate (percentage) at different location
@@ -96,31 +96,57 @@ class Person:
                 self.recovery_time = 336
         
     
-    def act(self, current_time):
+    def act(self, current_time, closed_location_type):
+        if not self.alive:
+            return
+        
+        # covid development
         if self.covid >= 0:
             # COVID mutate
             if random.randrange(100) < MUTATE_PROB:
                self.covid += 1 
-            # start healing
+            
+            # healing
             self.infection_time += 1
-            # fully healed
-            if self.infection_time == self.recovery_time:
-                self.antibody = self.covid
-                self.covid = -1
             # die with possibility related to age
             if random.random() <= death_prob[self.age]:
                 self.alive = False
+            # fully heal
+            if self.infection_time == self.recovery_time:
+                self.antibody = self.covid
+                self.covid = -1
+                self.infection_time = 0
+
+        # check current location
+        if self.location.type in closed_location_type:
+            # -2 in aciton is where people go when they have no place to go
+            self.location.remove(self)
+            self.location = self.actions[-2]
+            self.location.add(self)
+
+        # go to next location
+        #   no covid or covid is hidden
         if self.infection_time < HIDDEN_TIME or self.covid < 0 :
-            for time, location in self.actions:
-                if current_time == time:
-                    self.location.remove(self)
-                    self.location = location
-                    self.location.add(self)
+            if current_time in self.actions:
+                self.location.remove(self)
+                if self.actions[current_time].type in closed_location_type:
+                    # -2 in aciton is where people go when they have no place to go
+                    self.location = self.actions[-2]
+                else:
+                    self.location = self.actions[current_time]
+                self.location.add(self)
+        #   covid start to show symptom 
+        elif self.infection_time == HIDDEN_TIME:
+            # -1 in aciton is where people go when they are sick
+            self.location.remove(self)
+            self.location = self.actions[-1]
+            self.location.add(self)
+                
     
     def get_covid(self, infection_rate, covid):
          if random.randrange(100) < infection_rate and self.covid < covid and self.antibody < covid:
-             self.infection_time = 0
-             self.covid = covid
+            self.infection_time = 0
+            self.covid = covid
 
 class Location:
     def __init__(self, location_type):
@@ -135,6 +161,7 @@ class Location:
     
     def infect(self):
         if self.people:
+            # TODO: died people can still spread COVID?
             self.covid = max(self.covid, max(self.people, key=lambda p:p.covid).covid)
         for person in self.people:
             person.get_covid(self.infection_rate, self.covid)
@@ -146,28 +173,61 @@ class Location:
         self.people.add(person)
 
 
-def main():
-    home0 = Location("home")
-    home1 = Location("home")
-    office0 = Location("office")
-    gym0 = Location("gym")
-    person0 = Person(1, 35, home0, [(9,office0), (17,gym0), (19,home0)], 6)
-    person1 = Person(0, 35, home1, [(9,office0), (17,gym0), (19,home1)])
+class Environment:
 
-    time = 0
-    while True:
-        input("Press Enter to continue...")
-        person0.act(time)
-        person1.act(time)
-        home0.infect()
-        home1.infect()
-        office0.infect()
-        gym0.infect()
-        time += 1
-        time %= 24
-        print("time", time)
+    def __init__(self):
+        self.locations = []
+        self.closed_location_type = set()
+        self.people = []
+        self.time = 0
+
+        # development code ================== 
+        home0 = Location("home")
+        home1 = Location("home")
+        office0 = Location("office")
+        gym0 = Location("gym")
+        self.locations = [home0, home1, office0, gym0]
+        self.people = [Person(1, 35, home0, {-2:home0, -1:home0, 9:office0, 17:gym0, 19:home0}, 6), Person(0, 35, home1, {-2:home1, -1:home1, 9:office0, 17:gym0, 19:home1})]
+        # development code ==================
+
+    def step(self, actions):
+        # development code ==================
+        print(actions)
+        # development code ==================
+
+        # perform different actions
+        if actions[0]:
+            self.closed_location_type.add("gym")
+        else:
+            self.closed_location_type.discard("gym")
+        if actions[1]:
+            self.closed_location_type.add("office")
+        else:
+            self.closed_location_type.discard("office")
+        
+        # run the environment
+        for person in self.people:
+            person.act(self.time%24, self.closed_location_type)
+        for location in self.locations:
+            if location.type not in self.closed_location_type:
+                location.infect()
+        self.time += 1
+    
+    def print(self):
+        person0 = self.people[0]
+        person1 = self.people[1]
+        print("time", self.time)
         print("person 0 at " + person0.location.type, "covid version", person0.covid, "antibody version", person0.antibody, "infection time", person0.infection_time)
         print("person 1 at " + person1.location.type, "covid version", person1.covid, "antibody version", person1.antibody, "infection time", person1.infection_time)
+
+
+def main():
+    env = Environment()
+
+    while True:
+        actions = list(map(int, list(input("Enter your actions:"))))
+        env.step(actions)
+        env.print()
 
 if __name__ == "__main__":
     main()
