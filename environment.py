@@ -98,7 +98,8 @@ class Person:
                 self.recovery_time = 336
         
     
-    def act(self, current_time, closed_location_type):
+    def act(self, current_time):
+        global closed_location_type
         if not self.alive:
             return
         
@@ -146,7 +147,7 @@ class Person:
                 
     
     def get_covid(self, infection_rate, covid):
-         if random.randrange(100) < infection_rate and self.covid < covid and self.antibody < covid:
+        if random.randrange(100) < infection_rate and self.covid < covid and self.antibody < covid:
             self.infection_time = 0
             self.covid = covid
 
@@ -156,17 +157,22 @@ class Location:
         self.id = location_id
         location_id += 1
 
-        self.type = location_type
-        self.infection_rate = INFECTION_RATE[location_type]
+        self.type = location_type         
         self.people = set()
         self.covid = -1
     
     def infect(self):
+        global mask_mandate
         if self.people:
             # TODO: died people can still spread COVID?
             self.covid = max(self.covid, max(self.people, key=lambda p:p.covid).covid)
+        infection_rate = INFECTION_RATE[self.type]
+        # mask mandate reduce infection rate by 70-80 percent
+        # data from https://jamanetwork.com/journals/jama/fullarticle/2776536
+        if mask_mandate:
+            infection_rate *= 0.25
         for person in self.people:
-            person.get_covid(self.infection_rate, self.covid)
+            person.get_covid(infection_rate, self.covid)
     
     def remove(self, person):
         self.people.remove(person)
@@ -174,12 +180,15 @@ class Location:
     def add(self, person):
         self.people.add(person)
 
+# agent actions
+# global since same for everyone
+closed_location_type = set()
+mask_mandate = 0
 
 class Environment:
 
     def __init__(self):
         self.locations = []
-        self.closed_location_type = set()
         self.people = []
         self.time = 0
 
@@ -189,29 +198,32 @@ class Environment:
         office0 = Location("office")
         gym0 = Location("gym")
         self.locations = [home0, home1, office0, gym0]
-        self.people = [Person(1, 35, home0, {-2:home0, -1:home0, 9:office0, 17:gym0, 19:home0}, 6), Person(0, 35, home1, {-2:home1, -1:home1, 9:office0, 17:gym0, 19:home1})]
+        self.people = [ Person(1, 35, home0, {-2:home0, -1:home0, 2:office0, 17:gym0, 19:home0}, 6),
+                        Person(0, 35, home1, {-2:home1, -1:home1, 2:office0, 17:gym0, 19:home1})]
         # development code ==================
 
     def step(self, actions):
         # development code ==================
         print(actions)
         # development code ==================
+        global closed_location_type, mask_mandate
 
         # perform different actions
         if actions[0]:
-            self.closed_location_type.add("gym")
+            closed_location_type.add("gym")
         else:
-            self.closed_location_type.discard("gym")
+            closed_location_type.discard("gym")
         if actions[1]:
-            self.closed_location_type.add("office")
+            closed_location_type.add("office")
         else:
-            self.closed_location_type.discard("office")
+            closed_location_type.discard("office")
+        mask_mandate = actions[2]
         
         # run the environment
         for person in self.people:
-            person.act(self.time%24, self.closed_location_type)
+            person.act(self.time%24)
         for location in self.locations:
-            if location.type not in self.closed_location_type:
+            if location.type not in closed_location_type:
                 location.infect()
         self.time += 1
     

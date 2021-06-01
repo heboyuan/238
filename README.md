@@ -2,7 +2,8 @@
 - [x] ~~death related to age gender~~
 - [ ] add policy action and their result.
     - [x] ~~shut down location~~
-    - [x] mask mandate
+    - [x] ~~mask mandate https://jamanetwork.com/journals/jama/fullarticle/2776536~~
+    - [ ] limit gathering
     - [ ] more ?
 - [ ] accurate infection rate, mutate prob, etc
 - [ ] add visualized output
