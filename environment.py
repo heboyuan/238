@@ -7,13 +7,16 @@ HIDDEN_TIME = 20
 # COVID mutate chance 
 MUTATE_PROB = 10
 # infection rate (percentage) at different location
-INFECTION_RATE = {"home": 100, "office": 40, "gym": 70}
+# household infection rate reference: https://www.cdc.gov/mmwr/volumes/69/wr/mm6944e1.htm
+# office infection rate reference: https://www.cdc.gov/coronavirus/2019-ncov/php/community-mitigation/non-healthcare-work-settings.html
+# gym infection rate reference: https://www.advisory.com/en/daily-briefing/2021/03/01/gym-infections
+INFECTION_RATE = {"home": 53, "office": 25, "gym": 68}
 # id counter for location and people
 location_id, person_id = 0, 0
 # maximum possible age
 MAX_AGE = 100
 
-# death rate by age referenced by
+# total death rate by age referenced by
 # https://www.cdph.ca.gov/Programs/CID/DCDC/Pages/COVID-19/COVID-19-Cases-by-Age-Group.aspx
 death_rate = dict()
 # calculate onetime probalility by (1-x)^(heal_time) = 1-total_death_rate
