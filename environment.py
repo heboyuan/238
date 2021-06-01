@@ -99,7 +99,7 @@ class Person:
         
     
     def act(self, current_time):
-        global closed_location_type
+        global closed_location_type, gathering_size_limit
         if not self.alive:
             return
         
@@ -131,8 +131,9 @@ class Person:
         #   no covid or covid is hidden
         if self.infection_time < HIDDEN_TIME or self.covid < 0 :
             if current_time in self.actions:
+                next_location = self.actions[current_time]
                 self.location.remove(self)
-                if self.actions[current_time].type in closed_location_type:
+                if next_location.type in closed_location_type or next_location.people_count >= gathering_size_limit:
                     # -2 in aciton is where people go when they have no place to go
                     self.location = self.actions[-2]
                 else:
@@ -160,6 +161,7 @@ class Location:
         self.type = location_type         
         self.people = set()
         self.covid = -1
+        self.people_count = 0
     
     def infect(self):
         global mask_mandate
@@ -176,14 +178,17 @@ class Location:
     
     def remove(self, person):
         self.people.remove(person)
+        self.people_count -= 1
     
     def add(self, person):
         self.people.add(person)
+        self.people_count += 1
 
 # agent actions
 # global since same for everyone
 closed_location_type = set()
 mask_mandate = 0
+gathering_size_limit = float("inf")
 
 class Environment:
 
@@ -209,6 +214,7 @@ class Environment:
         global closed_location_type, mask_mandate
 
         # perform different actions
+        #  close locations
         if actions[0]:
             closed_location_type.add("gym")
         else:
@@ -217,7 +223,9 @@ class Environment:
             closed_location_type.add("office")
         else:
             closed_location_type.discard("office")
+        # mask mandate
         mask_mandate = actions[2]
+        # limit gathering size TODO: how do we limit it? boolean? number in range?
         
         # run the environment
         for person in self.people:

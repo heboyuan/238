@@ -3,7 +3,8 @@
 - [ ] add policy action and their result.
     - [x] ~~shut down location~~
     - [x] ~~mask mandate https://jamanetwork.com/journals/jama/fullarticle/2776536~~
-    - [ ] limit gathering
+    - [x] ~~limit gathering~~ !still have todos!
+    - [x] provide covid testing
     - [ ] more ?
 - [ ] accurate infection rate, mutate prob, etc
 - [ ] add visualized output
