@@ -6,5 +6,6 @@
     - [x] ~~limit gathering~~ !still have todos!
     - [x] ~~provide covid testing~~ !still have todos!
     - [ ] more ?
+- [ ] implement mass initialization system
 - [ ] accurate infection rate, mutate prob, etc
 - [ ] add visualized output
