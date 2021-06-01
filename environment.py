@@ -1,5 +1,4 @@
 import random
-from sympy import symbols, solve
 
 # how long does it take to heal from covid
 HEAL_TIME = 480
@@ -17,33 +16,36 @@ MAX_AGE = 100
 # death rate by age referenced by
 # https://www.cdph.ca.gov/Programs/CID/DCDC/Pages/COVID-19/COVID-19-Cases-by-Age-Group.aspx
 death_rate = dict()
-for age in range(MAX_AGE):
-    if age < 5:
-        death_rate[age] = 0
-    elif age <= 17:
-        death_rate[age] = 0
-    elif age <= 34:
-        death_rate[age] = 0.014
-    elif age <= 49:
-        death_rate[age] = 0.053
-    elif age <= 59:
-        death_rate[age] = 0.106
-    elif age <= 64:
-        death_rate[age] = 0.092
-    elif age <= 69:
-        death_rate[age] = 0.106
-    elif age <= 74:
-        death_rate[age] = 0.116
-    else:
-        death_rate[age] = 0.392
-
 # calculate onetime probalility by (1-x)^(heal_time) = 1-total_death_rate
 death_prob = dict()
 for age in range(MAX_AGE):
-    x = symbols('x')
-    expr = (1-x)**HEAL_TIME + death_rate[age] - 1
-    sol = solve(expr)
-    death_prob[age] = sol[0]
+    if age < 5:
+        death_rate[age] = 0
+        death_prob[age] = 0
+    elif age <= 17:
+        death_rate[age] = 0
+        death_prob[age] = 0
+    elif age <= 34:
+        death_rate[age] = 0.014
+        death_prob[age] = 0.00003
+    elif age <= 49:
+        death_rate[age] = 0.053
+        death_prob[age] = 0.00011
+    elif age <= 59:
+        death_rate[age] = 0.106
+        death_prob[age] = 0.00023
+    elif age <= 64:
+        death_rate[age] = 0.092
+        death_prob[age] = 0.0002
+    elif age <= 69:
+        death_rate[age] = 0.106
+        death_prob[age] = 0.00023
+    elif age <= 74:
+        death_rate[age] = 0.116
+        death_prob[age] = 0.000256
+    else:
+        death_rate[age] = 0.392
+        death_prob[age] = 0.001
 
 
 
