@@ -1,5 +1,5 @@
 - [x] ~~recovery related to age gender https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7229949/~~
-- [x] death related to age gender..?
+- [x] ~~death related to age gender~~
 - [ ] add policy action and their result.
     - [x] ~~shut down location~~
     - [x] mask mandate
