@@ -4,7 +4,7 @@
     - [x] ~~shut down location~~
     - [x] ~~mask mandate https://jamanetwork.com/journals/jama/fullarticle/2776536~~
     - [x] ~~limit gathering~~ !still have todos!
-    - [x] provide covid testing
+    - [x] ~~provide covid testing~~ !still have todos!
     - [ ] more ?
 - [ ] accurate infection rate, mutate prob, etc
 - [ ] add visualized output

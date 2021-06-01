@@ -99,7 +99,7 @@ class Person:
         
     
     def act(self, current_time):
-        global closed_location_type, gathering_size_limit
+        global closed_location_type, gathering_size_limit, testing_delay
         if not self.alive:
             return
         
@@ -128,8 +128,8 @@ class Person:
             self.location.add(self)
 
         # go to next location
-        #   no covid or covid is hidden
-        if self.infection_time < HIDDEN_TIME or self.covid < 0 :
+        #   no covid or haven't test for covid
+        if self.infection_time < HIDDEN_TIME + testing_delay or self.covid < 0 :
             if current_time in self.actions:
                 next_location = self.actions[current_time]
                 self.location.remove(self)
@@ -139,8 +139,8 @@ class Person:
                 else:
                     self.location = self.actions[current_time]
                 self.location.add(self)
-        #   covid start to show symptom 
-        elif self.infection_time == HIDDEN_TIME:
+        #   tested for covid, so need to go home
+        elif self.location != self.actions[-1]:
             # -1 in aciton is where people go when they are sick
             self.location.remove(self)
             self.location = self.actions[-1]
@@ -189,6 +189,7 @@ class Location:
 closed_location_type = set()
 mask_mandate = 0
 gathering_size_limit = float("inf")
+testing_delay = 0
 
 class Environment:
 
@@ -225,7 +226,8 @@ class Environment:
             closed_location_type.discard("office")
         # mask mandate
         mask_mandate = actions[2]
-        # limit gathering size TODO: how do we limit it? boolean? number in range?
+        # limit gathering size TODO: how to set limit? boolean? number in range?
+        # testing delay TODO: how to set test delay? boolean? number in range?
         
         # run the environment
         for person in self.people:
