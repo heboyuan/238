@@ -1,5 +1,6 @@
 - [x] ~~recovery related to age gender https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7229949/~~
 - [x] ~~death related to age gender~~
+- [x] vaccination
 - [ ] add policy action and their result.
     - [x] ~~shut down location~~
     - [x] ~~mask mandate https://jamanetwork.com/journals/jama/fullarticle/2776536~~
@@ -7,5 +8,5 @@
     - [x] ~~provide covid testing~~ !still have todos!
     - [ ] more ?
 - [ ] implement mass initialization system
-- [ ] accurate infection rate, mutate prob, etc
+- [x] accurate infection rate, mutate prob, etc
 - [ ] add visualized output
