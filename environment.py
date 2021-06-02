@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 
 # incubation period of covid
 HIDDEN_TIME = 20
-# COVID mutate chance 
-MUTATE_PROB = 0
+# COVID mutate chance (# in one chance)
+MUTATE_PROB = 200000
 # infection rate (percentage) at different location
 # household infection rate reference: https://www.cdc.gov/mmwr/volumes/69/wr/mm6944e1.htm
 # office infection rate reference: https://www.cdc.gov/coronavirus/2019-ncov/php/community-mitigation/non-healthcare-work-settings.html
 # gym infection rate reference: https://www.advisory.com/en/daily-briefing/2021/03/01/gym-infections
-INFECTION_RATE = {"home": 53, "office": 25, "gym": 68}
+INFECTION_RATE = {"home": 53/100, "office": 25/100, "gym": 68/100}
 # maximum possible age
 MAX_AGE = 100
 # vaccine development cycle
@@ -99,29 +99,30 @@ class Person:
     def act(self, current_time):
         global closed_location_type, gathering_size_limit, testing_delay, vaccine_version, vaccination_age
         
-        # -2: just died, -1: have covid, 0: healthy, 1: recovered from covid, 2: got vaccine
+        # -3: covid mutated, -2: just died, -1: have covid, 0: healthy, 1: recovered from covid, 2: got vaccine
         return_value = 0
         
         # covid development
         if self.covid >= 0:
-            return_value = -1
-            # COVID mutate
-            if random.randrange(100) < MUTATE_PROB:
-               self.covid += 1 
-            
             # healing
             self.infection_time += 1
-            # die with possibility related to age
-            if random.random() <= death_prob[self.age]:
-                self.alive = False
-                self.location.remove(self)
-                return -2
             # fully heal
             if self.infection_time == self.recovery_time:
                 self.antibody = self.covid
                 self.covid = -1
                 self.infection_time = 0
                 return_value = 1
+            # die with possibility related to age
+            elif random.random() <= death_prob[self.age]:
+                self.alive = False
+                self.location.remove(self)
+                return -2
+            # COVID mutate
+            elif not random.randrange(MUTATE_PROB):
+               self.covid += 1
+               return_value = -3
+            else:
+                return_value = -1
 
         # check current location
         if self.location.type in closed_location_type:
@@ -179,7 +180,6 @@ class Location:
             infection_rate *= 0.25
         for person in self.people:
             person.get_covid(infection_rate, self.covid)
-        return self.covid
     
     def remove(self, person):
         self.people.remove(person)
@@ -206,7 +206,8 @@ class Environment:
         self.locations = []
         self.people = []
         self.time = 0
-        self.covid_version = -1
+        # assume we have covid to start with
+        self.covid_version = 0
 
         locations_construction = {
             "office": [],
@@ -244,6 +245,7 @@ class Environment:
         # stats features
         self.vaccine_counts = []
         self.covid_counts = []
+        self.total_covid_counts = []
         self.healthy_counts = []
         self.accu_death_counts = []
         self.accu_recover_counts = []
@@ -272,7 +274,8 @@ class Environment:
         # TODO: action[6] set vaccination wellingness. how to set test delay? boolean? number in range?
         
         # stats variables
-        covid_count = 0
+        mutation_indicator = False
+        covid_count = [0 for _ in range(self.covid_version + 1)]
         healthy_count = 0
         vaccine_count = 0
         accu_death_count = self.accu_death_counts[-1] if self.accu_death_counts else 0
@@ -289,23 +292,35 @@ class Environment:
                 accu_recover_count += 1
                 healthy_count += 1
             elif action_return == -1:
-                covid_count += 1
+                covid_count[person.covid] += 1
             elif action_return == -2:
                 accu_death_count += 1
+            elif action_return == -3:
+                if self.covid_version < person.covid:
+                    covid_count.append(1)
+                    self.covid_version = person.covid
+                else:
+                    covid_count[person.covid] += 1
             else:
                 healthy_count += 1
         self.vaccine_counts.append(vaccine_count)
-        self.covid_counts.append(covid_count) 
         self.accu_death_counts.append(accu_death_count)
         self.accu_recover_counts.append(accu_recover_count)
         self.healthy_counts.append(healthy_count)
+        self.total_covid_counts.append(sum(covid_count))
 
-        print("covid", covid_count, "death", accu_death_count, "recover", accu_recover_count, "healthy", healthy_count, "vaccine", vaccine_count)
+        while self.covid_version + 1 > len(self.covid_counts):
+            self.covid_counts.append([0 for _ in range(self.time)])
+        for version, count in enumerate(covid_count):
+            self.covid_counts[version].append(count)    
+
+        print("covid version", self.covid_version)
+        print("covid", sum(covid_count), "death", accu_death_count, "recover", accu_recover_count, "healthy", healthy_count, "vaccine", vaccine_count)
 
 
         for location in self.locations:
             if location.type not in closed_location_type:
-                self.covid_version = max(self.covid_version, location.infect())
+                location.infect()
         if vaccine_version < self.covid_version:
             vaccine_dev_time = random.randrange(MAX_VACCINE_DEVELOPMENT_TIME)
             
@@ -329,9 +344,11 @@ class Environment:
     
     def plot(self):
         time_line = [t for t in range(self.time)]
-        plt.plot(time_line, self.covid_counts, label = "covid count")
+        for covid_version, covid_count in enumerate(self.covid_counts):
+            plt.plot(time_line, covid_count, label = "covid version " + str(covid_version))
         plt.plot(time_line, self.accu_death_counts, label = "covid death")
-        plt.plot(time_line, self.accu_recover_counts, label = "covid recovery")
+        plt.plot(time_line, self.total_covid_counts, label = "all covid version count")
+        # plt.plot(time_line, self.accu_recover_counts, label = "covid recovery")
         # plt.plot(time_line, self.healthy_counts, label = "healthy people")
         plt.legend()
         plt.savefig('test.png')
@@ -368,16 +385,17 @@ ACTION_TEMPLATE_2 = [(9, "office"), (17, "home")]
 
 def main():
     locations = [("gym", 5), ("office", 3), ("home", 100)]
-    people = [(70, 80, ACTION_TEMPLATE_1, 100), (40, 80, ACTION_TEMPLATE_2, 100)] 
+    people = [(70, 80, ACTION_TEMPLATE_1, 500), (40, 80, ACTION_TEMPLATE_2, 500)] 
     env = Environment(locations, people)
 
     while True:
         env.print_time()
-        # actions = list(map(int, list(input("Enter your actions:"))))
-        if(input("Hit Enter to continue...\n")):
-            env.plot()
         actions = [0,0,0]
         env.step(actions)
+        # actions = list(map(int, list(input("Enter your actions:"))))
+        if not (env.time-1) % 240 and input("Hit Enter to continue...\n"):
+                env.plot()
+        
         # env.print_general_info()
 
 if __name__ == "__main__":
