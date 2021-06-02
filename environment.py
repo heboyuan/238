@@ -15,6 +15,8 @@ INFECTION_RATE = {"home": 53, "office": 25, "gym": 68}
 location_id, person_id = 0, 0
 # maximum possible age
 MAX_AGE = 100
+# vaccine development cycle
+MAX_VACCINE_DEVELOPMENT_TIME = 100
 
 # total death rate by age referenced by
 # https://www.cdph.ca.gov/Programs/CID/DCDC/Pages/COVID-19/COVID-19-Cases-by-Age-Group.aspx
@@ -102,7 +104,7 @@ class Person:
         
     
     def act(self, current_time):
-        global closed_location_type, gathering_size_limit, testing_delay
+        global closed_location_type, gathering_size_limit, testing_delay, vaccine_version, vaccination_age
         if not self.alive:
             return
         
@@ -142,6 +144,9 @@ class Person:
                 else:
                     self.location = self.actions[current_time]
                 self.location.add(self)
+            if random.randrange(100) > vaccination_wellingness and self.age > vaccination_age:
+                self.antibody = vaccine_version
+
         #   tested for covid, so need to go home
         elif self.location != self.actions[-1]:
             # -1 in aciton is where people go when they are sick
@@ -178,6 +183,7 @@ class Location:
             infection_rate *= 0.25
         for person in self.people:
             person.get_covid(infection_rate, self.covid)
+        return self.covid
     
     def remove(self, person):
         self.people.remove(person)
@@ -193,6 +199,10 @@ closed_location_type = set()
 mask_mandate = 0
 gathering_size_limit = float("inf")
 testing_delay = 0
+vaccine_version = -1
+vaccine_dev_time = 0
+vaccination_age = MAX_AGE
+vaccination_wellingness = 0
 
 class Environment:
 
@@ -215,7 +225,7 @@ class Environment:
         # development code ==================
         print(actions)
         # development code ==================
-        global closed_location_type, mask_mandate
+        global closed_location_type, mask_mandate, vaccine_version
 
         # perform different actions
         #  close locations
@@ -229,15 +239,26 @@ class Environment:
             closed_location_type.discard("office")
         # mask mandate
         mask_mandate = actions[2]
-        # limit gathering size TODO: how to set limit? boolean? number in range?
-        # testing delay TODO: how to set test delay? boolean? number in range?
+        # TODO: actions[3] limit gathering size. how to set limit? boolean? number in range?
+        # TODO: actions[4] testing delay. how to set test delay? boolean? number in range?
+        # TODO: action[5] set the age of people allowed to get vaccine. how to set test delay? boolean? number in range?
+        # TODO: action[6] set vaccination wellingness. how to set test delay? boolean? number in range?
         
         # run the environment
+        covid_version = -1
         for person in self.people:
             person.act(self.time%24)
         for location in self.locations:
             if location.type not in closed_location_type:
-                location.infect()
+                covid_version = max(covid_version, location.infect())
+        if vaccine_version != covid_version:
+            vaccine_dev_time = random.randrange(MAX_VACCINE_DEVELOPMENT_TIME)
+            
+        if vaccine_dev_time:
+            vaccine_dev_time -= 1
+        else:
+            vaccine_version = covid_version
+
         self.time += 1
     
     def print(self):
