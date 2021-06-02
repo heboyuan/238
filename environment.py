@@ -11,8 +11,6 @@ MUTATE_PROB = 10
 # office infection rate reference: https://www.cdc.gov/coronavirus/2019-ncov/php/community-mitigation/non-healthcare-work-settings.html
 # gym infection rate reference: https://www.advisory.com/en/daily-briefing/2021/03/01/gym-infections
 INFECTION_RATE = {"home": 53, "office": 25, "gym": 68}
-# id counter for location and people
-location_id, person_id = 0, 0
 # maximum possible age
 MAX_AGE = 100
 # vaccine development cycle
@@ -56,10 +54,6 @@ for age in range(MAX_AGE):
 
 class Person:
     def __init__(self, gender, age, initial_location, actions, covid = -1):
-        global person_id
-        self.id = person_id
-        person_id += 1
-
         self.location = initial_location
         initial_location.add(self)
 
@@ -162,10 +156,6 @@ class Person:
 
 class Location:
     def __init__(self, location_type):
-        global location_id
-        self.id = location_id
-        location_id += 1
-
         self.type = location_type         
         self.people = set()
         self.covid = -1
@@ -206,26 +196,49 @@ vaccination_wellingness = 0
 
 class Environment:
 
-    def __init__(self):
+    def __init__(self, locations, people):
         self.locations = []
         self.people = []
         self.time = 0
 
-        # development code ================== 
-        home0 = Location("home")
-        home1 = Location("home")
-        office0 = Location("office")
-        gym0 = Location("gym")
-        self.locations = [home0, home1, office0, gym0]
-        self.people = [ Person(1, 35, home0, {-2:home0, -1:home0, 2:office0, 17:gym0, 19:home0}, 6),
-                        Person(0, 35, home1, {-2:home1, -1:home1, 2:office0, 17:gym0, 19:home1})]
-        # development code ==================
+        locations_construction = {
+            "office": [],
+            "gym": [],
+            "home": []
+        }
+
+        for location_type, location_count in locations:
+            for _ in range(location_count):
+                loc = Location(location_type)
+                locations_construction[location_type].append(loc)
+                self.locations.append(loc)
+        people_home_index = 0
+        for male_percentage, age, action_source, people_count in people:
+            for _ in range(people_count):
+                if people_home_index < len(locations_construction["home"]):
+                    home = locations_construction["home"][people_home_index]
+                    people_home_index += 1
+                else:
+                    home = random.choice(locations_construction["home"])
+                gender = random.randint(0, 99) < male_percentage
+                
+                acts = {-2:home, -1:home}
+                for time, location_type in action_source:
+                    if location_type == "home":
+                        acts[time] = home
+                    else:
+                        acts[time] = random.choice(locations_construction[location_type])
+                
+                if random.randint(0, 100):
+                    self.people.append(Person(gender, age, home, acts))
+                else:
+                    self.people.append(Person(gender, age, home, acts, 0))
 
     def step(self, actions):
         # development code ==================
         print(actions)
         # development code ==================
-        global closed_location_type, mask_mandate, vaccine_version
+        global closed_location_type, mask_mandate, vaccine_version, vaccine_dev_time
 
         # perform different actions
         #  close locations
@@ -261,21 +274,31 @@ class Environment:
 
         self.time += 1
     
-    def print(self):
-        person0 = self.people[0]
-        person1 = self.people[1]
-        print("time", self.time)
-        print("person 0 at " + person0.location.type, "covid version", person0.covid, "antibody version", person0.antibody, "infection time", person0.infection_time)
-        print("person 1 at " + person1.location.type, "covid version", person1.covid, "antibody version", person1.antibody, "infection time", person1.infection_time)
+    def print_time(self):
+        print("day", self.time//24, "time", self.time%24)
 
+    def print_people(self, person_id):
+        person = self.people[person_id]
+        print("person", person_id, "at " + person.location.type, "covid version", person.covid, "antibody version", person.antibody, "infection time", person.infection_time)
+    
+    def print_location(self, location_id):
+        location = self.locations[location_id]
+        print("location", location_id, "type " + location.type, "people count", location.people_count)
+
+ACTION_TEMPLATE_1 = [(9, "office"), (17, "gym"), (20, "home")]
+ACTION_TEMPLATE_2 = [(9, "office"), (17, "home")]
 
 def main():
-    env = Environment()
+    locations = [("gym", 5), ("office", 3), ("home", 100)]
+    people = [(70, 20, ACTION_TEMPLATE_1, 100), (40, 20, ACTION_TEMPLATE_2, 100)] 
+    env = Environment(locations, people)
 
     while True:
         actions = list(map(int, list(input("Enter your actions:"))))
         env.step(actions)
-        env.print()
+        env.print_time()
+        for id in range(108):
+            env.print_location(id)
 
 if __name__ == "__main__":
     main()

@@ -8,6 +8,6 @@
     - [x] ~~provide covid testing~~ !still have todos!
     - [x] ~~vaccination related~~!still have todos!
     - [ ] more ?
-- [x] implement mass initialization system
+- [x] ~~implement mass initialization system~~
 - [x] accurate infection rate, mutate prob, etc
-- [ ] add visualized output
+- [x] add visualized output
