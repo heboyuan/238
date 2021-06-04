@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 # incubation period of covid
 HIDDEN_TIME = 20
 # COVID mutate chance (# in one chance)
-MUTATE_PROB = 200000
+MUTATE_PROB = 1/200000
 # infection rate (percentage) at different location
 # household infection rate reference: https://www.cdc.gov/mmwr/volumes/69/wr/mm6944e1.htm
 # office infection rate reference: https://www.cdc.gov/coronavirus/2019-ncov/php/community-mitigation/non-healthcare-work-settings.html
 # gym infection rate reference: https://www.advisory.com/en/daily-briefing/2021/03/01/gym-infections
-INFECTION_RATE = {"home": 53/100, "office": 25/100, "gym": 68/100}
+INFECTION_RATE = {"home": 0.53/100, "office": 0.25/100, "gym": 0.68/100}
 # maximum possible age
 MAX_AGE = 100
 # vaccine development cycle
@@ -118,7 +118,7 @@ class Person:
                 self.location.remove(self)
                 return -2
             # COVID mutate
-            elif not random.randrange(MUTATE_PROB):
+            elif not random.random() < MUTATE_PROB:
                self.covid += 1
                return_value = -3
             else:
@@ -143,7 +143,7 @@ class Person:
                 else:
                     self.location = self.actions[current_time]
                 self.location.add(self)
-            if random.randrange(100) > vaccination_wellingness and self.age > vaccination_age and self.covid < 0:
+            if random.random() > vaccination_wellingness and self.age > vaccination_age and self.covid < 0:
                 self.antibody = vaccine_version
                 return_value = 2
 
@@ -158,7 +158,7 @@ class Person:
                 
     
     def get_covid(self, infection_rate, covid):
-        if random.randrange(100) < infection_rate and self.covid < covid and self.antibody < covid:
+        if random.random() < infection_rate and self.covid < covid and self.antibody < covid:
             self.infection_time = 0
             self.covid = covid
 
@@ -171,8 +171,9 @@ class Location:
     
     def infect(self):
         global mask_mandate
-        if self.people:
-            self.covid = max(self.covid, max(self.people, key=lambda p:p.covid).covid)
+        for person in self.people:
+             if person.covid > self.covid:
+                 self.covid = person.covid
         infection_rate = INFECTION_RATE[self.type]
         # mask mandate reduce infection rate by 70-80 percent
         # data from https://jamanetwork.com/journals/jama/fullarticle/2776536
@@ -198,7 +199,7 @@ testing_delay = 0
 vaccine_version = -1
 vaccine_dev_time = 0
 vaccination_age = MAX_AGE
-vaccination_wellingness = 0
+vaccination_wellingness = 0.0
 
 class Environment:
 
@@ -314,17 +315,17 @@ class Environment:
         for version, count in enumerate(covid_count):
             self.covid_counts[version].append(count)    
 
-        print("covid version", self.covid_version)
-        print("covid", sum(covid_count), "death", accu_death_count, "recover", accu_recover_count, "healthy", healthy_count, "vaccine", vaccine_count)
+        # print("covid version", self.covid_version)
+        # print("covid", sum(covid_count), "death", accu_death_count, "recover", accu_recover_count, "healthy", healthy_count, "vaccine", vaccine_count)
 
 
         for location in self.locations:
             if location.type not in closed_location_type:
                 location.infect()
         if vaccine_version < self.covid_version:
-            vaccine_dev_time = random.randrange(MAX_VACCINE_DEVELOPMENT_TIME)
+            vaccine_dev_time = random.random()*MAX_VACCINE_DEVELOPMENT_TIME
             
-        if vaccine_dev_time:
+        if vaccine_dev_time > 0:
             vaccine_dev_time -= 1
         else:
             vaccine_version = self.covid_version
@@ -384,17 +385,19 @@ ACTION_TEMPLATE_1 = [(9, "office"), (17, "gym"), (20, "home")]
 ACTION_TEMPLATE_2 = [(9, "office"), (17, "home")]
 
 def main():
-    locations = [("gym", 5), ("office", 3), ("home", 100)]
-    people = [(70, 80, ACTION_TEMPLATE_1, 500), (40, 80, ACTION_TEMPLATE_2, 500)] 
+    locations = [("gym", 50), ("office", 500), ("home", 50000)]
+    people = [(70, 80, ACTION_TEMPLATE_1, 50000), (40, 80, ACTION_TEMPLATE_2, 50000)] 
     env = Environment(locations, people)
 
     while True:
-        env.print_time()
+        # env.print_time()
         actions = [0,0,0]
         env.step(actions)
         # actions = list(map(int, list(input("Enter your actions:"))))
-        if not (env.time-1) % 240 and input("Hit Enter to continue...\n"):
-                env.plot()
+        # if not (env.time-1) % 240 and input("Hit Enter to continue...\n"):
+        #         env.plot()
+        if env.time == 200:
+            return
         
         # env.print_general_info()
 
