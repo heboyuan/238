@@ -9,7 +9,7 @@ MUTATE_PROB = 1/200000
 # household infection rate reference: https://www.cdc.gov/mmwr/volumes/69/wr/mm6944e1.htm
 # office infection rate reference: https://www.cdc.gov/coronavirus/2019-ncov/php/community-mitigation/non-healthcare-work-settings.html
 # gym infection rate reference: https://www.advisory.com/en/daily-briefing/2021/03/01/gym-infections
-INFECTION_RATE = {"home": 0.53/100, "office": 0.25/100, "gym": 0.68/100}
+INFECTION_RATE = {"home": 0.53/50, "office": 0.25/50, "gym": 0.68/50}
 # maximum possible age
 MAX_AGE = 100
 # vaccine development cycle
@@ -54,7 +54,7 @@ for age in range(MAX_AGE):
 class Person:
     def __init__(self, gender, age, initial_location, actions, covid = -1):
         self.location = initial_location
-        initial_location.add(self)
+        initial_location.people_count += 1
 
         self.alive = True
         self.age = age
@@ -97,7 +97,7 @@ class Person:
         
     
     def act(self, current_time):
-        global closed_location_type, gathering_size_limit, testing_delay, vaccine_version, vaccination_age
+        global closed_location_type, gathering_size_limit, testing_delay, vaccine_version, vaccination_age, mask_mandate
         
         # -3: covid mutated, -2: just died, -1: have covid, 0: healthy, 1: recovered from covid, 2: got vaccine
         return_value = 0
@@ -115,10 +115,10 @@ class Person:
             # die with possibility related to age
             elif random.random() <= death_prob[self.age]:
                 self.alive = False
-                self.location.remove(self)
+                self.location.people_count -= 1
                 return -2
             # COVID mutate
-            elif not random.random() < MUTATE_PROB:
+            elif random.random() < MUTATE_PROB:
                self.covid += 1
                return_value = -3
             else:
@@ -127,22 +127,22 @@ class Person:
         # check current location
         if self.location.type in closed_location_type:
             # -2 in aciton is where people go when they have no place to go
-            self.location.remove(self)
+            self.location.people_count -= 1
             self.location = self.actions[-2]
-            self.location.add(self)
+            self.location.people_count += 1
 
         # go to next location
         #   no covid or haven't test for covid
         if self.infection_time < HIDDEN_TIME + testing_delay or self.covid < 0 :
             if current_time in self.actions:
                 next_location = self.actions[current_time]
-                self.location.remove(self)
+                self.location.people_count -= 1
                 if next_location.type in closed_location_type or next_location.people_count >= gathering_size_limit:
                     # -2 in aciton is where people go when they have no place to go
                     self.location = self.actions[-2]
                 else:
                     self.location = self.actions[current_time]
-                self.location.add(self)
+                self.location.people_count += 1
             if random.random() > vaccination_wellingness and self.age > vaccination_age and self.covid < 0:
                 self.antibody = vaccine_version
                 return_value = 2
@@ -150,45 +150,30 @@ class Person:
         #   tested for covid, so need to go home
         elif self.location != self.actions[-1]:
             # -1 in aciton is where people go when they are sick
-            self.location.remove(self)
+            self.location.people_count -= 1
             self.location = self.actions[-1]
-            self.location.add(self)
+            self.location.people_count += 1
 
-        return return_value
-                
+        if self.location.covid < self.covid:
+            self.location.covid = self.covid
+        return return_value       
     
-    def get_covid(self, infection_rate, covid):
-        if random.random() < infection_rate and self.covid < covid and self.antibody < covid:
+    def get_covid(self):
+        covid = self.location.covid
+        infection_rate = self.location.base_infection_rate
+        if mask_mandate:
+            infection_rate = infection_rate*0.25
+        if self.covid < covid and self.antibody < covid and random.random() < infection_rate:
             self.infection_time = 0
             self.covid = covid
+            
 
 class Location:
     def __init__(self, location_type):
-        self.type = location_type         
-        self.people = set()
+        self.type = location_type
+        self.base_infection_rate = INFECTION_RATE[location_type]
         self.covid = -1
         self.people_count = 0
-    
-    def infect(self):
-        global mask_mandate
-        for person in self.people:
-             if person.covid > self.covid:
-                 self.covid = person.covid
-        infection_rate = INFECTION_RATE[self.type]
-        # mask mandate reduce infection rate by 70-80 percent
-        # data from https://jamanetwork.com/journals/jama/fullarticle/2776536
-        if mask_mandate:
-            infection_rate *= 0.25
-        for person in self.people:
-            person.get_covid(infection_rate, self.covid)
-    
-    def remove(self, person):
-        self.people.remove(person)
-        self.people_count -= 1
-    
-    def add(self, person):
-        self.people.add(person)
-        self.people_count += 1
 
 # agent actions
 # global since same for everyone
@@ -199,7 +184,7 @@ testing_delay = 0
 vaccine_version = -1
 vaccine_dev_time = 0
 vaccination_age = MAX_AGE
-vaccination_wellingness = 0.0
+vaccination_wellingness = 1.0
 
 class Environment:
 
@@ -282,6 +267,8 @@ class Environment:
         accu_death_count = self.accu_death_counts[-1] if self.accu_death_counts else 0
         accu_recover_count = self.accu_recover_counts[-1] if self.accu_recover_counts else 0
         # run the environment
+        for location in self.locations:
+            location.covid = -1
         for person in self.people:
             if not person.alive:
                 continue
@@ -311,17 +298,13 @@ class Environment:
         self.total_covid_counts.append(sum(covid_count))
 
         while self.covid_version + 1 > len(self.covid_counts):
-            self.covid_counts.append([0 for _ in range(self.time)])
+            self.covid_counts.append([float('nan') for _ in range(self.time)])
         for version, count in enumerate(covid_count):
             self.covid_counts[version].append(count)    
 
-        # print("covid version", self.covid_version)
-        # print("covid", sum(covid_count), "death", accu_death_count, "recover", accu_recover_count, "healthy", healthy_count, "vaccine", vaccine_count)
+        print("covid version", self.covid_version)
+        print("covid", sum(covid_count), "death", accu_death_count, "recover", accu_recover_count, "healthy", healthy_count, "vaccine", vaccine_count)
 
-
-        for location in self.locations:
-            if location.type not in closed_location_type:
-                location.infect()
         if vaccine_version < self.covid_version:
             vaccine_dev_time = random.random()*MAX_VACCINE_DEVELOPMENT_TIME
             
@@ -329,6 +312,9 @@ class Environment:
             vaccine_dev_time -= 1
         else:
             vaccine_version = self.covid_version
+
+        for person in self.people:
+            person.get_covid()
 
         self.time += 1
     
@@ -345,6 +331,7 @@ class Environment:
     
     def plot(self):
         time_line = [t for t in range(self.time)]
+        plt.close()
         for covid_version, covid_count in enumerate(self.covid_counts):
             plt.plot(time_line, covid_count, label = "covid version " + str(covid_version))
         plt.plot(time_line, self.accu_death_counts, label = "covid death")
@@ -385,19 +372,19 @@ ACTION_TEMPLATE_1 = [(9, "office"), (17, "gym"), (20, "home")]
 ACTION_TEMPLATE_2 = [(9, "office"), (17, "home")]
 
 def main():
-    locations = [("gym", 50), ("office", 500), ("home", 50000)]
-    people = [(70, 80, ACTION_TEMPLATE_1, 50000), (40, 80, ACTION_TEMPLATE_2, 50000)] 
+    locations = [("gym", 100), ("office", 1000), ("home", 5000)]
+    people = [(70, 20, ACTION_TEMPLATE_1, 5000), (40, 20, ACTION_TEMPLATE_2, 5000)] 
     env = Environment(locations, people)
 
     while True:
-        # env.print_time()
+        if not env.time % 240 and input("Hit Enter to continue...\n"):
+                env.plot()
+                continue
+        env.print_time()
         actions = [0,0,0]
         env.step(actions)
         # actions = list(map(int, list(input("Enter your actions:"))))
-        # if not (env.time-1) % 240 and input("Hit Enter to continue...\n"):
-        #         env.plot()
-        if env.time == 200:
-            return
+        
         
         # env.print_general_info()
 
