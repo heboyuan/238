@@ -9,5 +9,6 @@
     - [x] ~~vaccination related~~!still have todos!
     - [ ] more ?
 - [x] ~~implement mass initialization system~~
+- [x] openai gym style observation and reward
 - [x] accurate infection rate, mutate prob, etc
 - [x] add visualized output
