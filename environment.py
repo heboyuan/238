@@ -317,6 +317,15 @@ class Environment:
             person.get_covid()
 
         self.time += 1
+
+        # construction observation, reward, and done
+        # observation
+        # covid_version_case = []
+        # covid_version = -1
+        # covid_death = []
+        # covid_recovery = 0
+        # vaccine_version_dose = []
+        # vaccine_version = -1
     
     def print_time(self):
         print("day", self.time//24, "time", self.time%24)
