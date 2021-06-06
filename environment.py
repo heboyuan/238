@@ -417,7 +417,7 @@ class Environment:
         else:
             vaccine_version_dose = [vaccine_log[-1] for vaccine_log in self.vaccine_counts] + [0]*(OBSERVATION_VACCINE_VERSION - len(self.vaccine_counts))
 
-        observation = covid_version_case + [covid_version] + vaccine_version_dose + [vaccine_version] + [accu_death_count] + [accu_recover_count] + [healthy_count]
+        observation = [self.time] + covid_version_case + [covid_version] + vaccine_version_dose + [vaccine_version] + [accu_death_count] + [accu_recover_count] + [healthy_count]
         for location in self.locations:
             if location.type != "home":
                 observation.append(location.people_count)
