@@ -1,5 +1,6 @@
 import random
 import math
+import sys
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -14,20 +15,32 @@ import torch.nn.functional as F
 # ==========================================================================================================
 #                                          START environment START                                         |
 # ==========================================================================================================
-
+#================================
+# env running configure         |
+#================================
 # incubation period of covid
-HIDDEN_TIME = 20
+# https://www.worldometers.info/coronavirus/coronavirus-incubation-period/#24
+HIDDEN_TIME = 36
 # COVID mutate chance
-MUTATE_PROB = 0
+MUTATE_PROB = 0.000000001
 # infection rate (percentage) at different location
 # household infection rate reference: https://www.cdc.gov/mmwr/volumes/69/wr/mm6944e1.htm
 # office infection rate reference: https://www.cdc.gov/coronavirus/2019-ncov/php/community-mitigation/non-healthcare-work-settings.html
 # gym infection rate reference: https://www.advisory.com/en/daily-briefing/2021/03/01/gym-infections
-INFECTION_RATE = {"home": 0.53/100, "office": 0.25/100, "gym": 0.68/100}
+# restaurant, store, school infection rate reference: ????????????????????????????????????????????????????????????????????
+deno = 24
+INFECTION_RATE = {
+                    "home": 0.53/deno,
+                    "office": 0.25/deno,
+                    "gym": 0.68/deno,
+                    "restaurant": 0.80/deno,
+                    "store": 0.50/deno,
+                    "school": 0.60/deno
+                    }
 # maximum possible age
 MAX_AGE = 100
 # vaccine development cycle
-MAX_VACCINE_DEVELOPMENT_TIME = 200
+MAX_VACCINE_DEVELOPMENT_TIME = 1080
 
 # total death rate by age referenced by
 # https://www.cdph.ca.gov/Programs/CID/DCDC/Pages/COVID-19/COVID-19-Cases-by-Age-Group.aspx
@@ -63,6 +76,45 @@ for age in range(MAX_AGE):
         death_rate[age] = 0.392
         death_prob[age] = 0.001
 
+#================================
+# env implementation configure  |
+#================================
+INITIAL_COVID_PERCENTAGE = 0.001
+OBSERVATION_COVID_VERSION = 10
+OBSERVATION_VACCINE_VERSION = 10
+N_ACTIONS = 18
+
+#================================
+# agent control global variables|
+#================================
+# initialization value
+MAX_GATHER_SIZE = 1000
+MAX_TESTING_DELAY = 6
+
+# global variables
+closed_location_type = set()
+mask_mandate = 0
+gathering_size_limit = MAX_GATHER_SIZE
+testing_delay = MAX_TESTING_DELAY
+vaccine_version = -1
+vaccine_dev_version = -1
+vaccine_dev_time = 0
+vaccination_age = MAX_AGE
+vaccination_wellingness = 0.5
+def reset_global_for_environment():
+    global closed_location_type, mask_mandate, gathering_size_limit, testing_delay, vaccine_version,\
+            vaccine_dev_version, vaccine_dev_time, vaccination_age, vaccination_wellingness
+    closed_location_type = set()
+    mask_mandate = 0
+    gathering_size_limit = MAX_GATHER_SIZE
+    testing_delay = MAX_TESTING_DELAY
+    vaccine_version = -1
+    vaccine_dev_version = -1
+    vaccine_dev_time = 0
+    vaccination_age = MAX_AGE
+    vaccination_wellingness = 0.5
+
+
 
 
 class Person:
@@ -84,30 +136,30 @@ class Person:
         # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7229949/
         if self.gender:
             if self.age < 20:
-                self.recovery_time = 327
+                self.recovery_time = int(327/2)
             elif self.age < 30:
-                self.recovery_time = 327
+                self.recovery_time = int(327/2)
             elif self.age < 40:
-                self.recovery_time = 347
+                self.recovery_time = int(347/2)
             elif self.age < 50:
-                self.recovery_time = 355
+                self.recovery_time = int(355/2)
             elif self.age < 60:
-                self.recovery_time = 355
+                self.recovery_time = int(355/2)
             else:
-                self.recovery_time = 353
+                self.recovery_time = int(353/2)
         else:
             if self.age < 20:
-                self.recovery_time = 318
+                self.recovery_time = int(318/2)
             elif self.age < 30:
-                self.recovery_time = 335
+                self.recovery_time = int(335/2)
             elif self.age < 40:
-                self.recovery_time = 340
+                self.recovery_time = int(340/2)
             elif self.age < 50:
-                self.recovery_time = 354
+                self.recovery_time = int(354/2)
             elif self.age < 60:
-                self.recovery_time = 340
+                self.recovery_time = int(340/2)
             else:
-                self.recovery_time = 336
+                self.recovery_time = int(336/2)
         
     
     def act(self, current_time):
@@ -121,7 +173,7 @@ class Person:
             # healing
             self.infection_time += 1
             # fully heal
-            if self.infection_time == self.recovery_time:
+            if self.infection_time >= self.recovery_time:
                 self.antibody = self.covid
                 self.covid = -1
                 self.infection_time = 0
@@ -189,39 +241,6 @@ class Location:
         self.covid = -1
         self.people_count = 0
 
-# agent actions
-# global since same for everyone
-closed_location_type = set()
-mask_mandate = 0
-gathering_size_limit = float("inf")
-testing_delay = 0
-vaccine_version = -1
-vaccine_dev_version = -1
-vaccine_dev_time = 0
-vaccination_age = MAX_AGE
-vaccination_wellingness = 0.0
-
-def reset_global_for_environment():
-    global closed_location_type, mask_mandate, gathering_size_limit, testing_delay, vaccine_version,\
-            vaccine_dev_version, vaccine_dev_time, vaccination_age, vaccination_wellingness
-    closed_location_type = set()
-    mask_mandate = 0
-    gathering_size_limit = float("inf")
-    testing_delay = 0
-    vaccine_version = -1
-    vaccine_dev_version = -1
-    vaccine_dev_time = 0
-    vaccination_age = MAX_AGE
-    vaccination_wellingness = 1
-
-
-# configure constant
-INITIAL_COVID_PERCENTAGE = 0.01
-
-OBSERVATION_COVID_VERSION = 10
-OBSERVATION_VACCINE_VERSION = 10
-N_ACTIONS = 7
-
 class Environment:
 
     def __init__(self, locations, people, debug=False):
@@ -233,10 +252,13 @@ class Environment:
         self.debug = debug
 
         locations_construction = {
-            "office": [],
-            "gym": [],
-            "home": []
-        }
+                                    "home": [],
+                                    "office": [],
+                                    "gym": [],
+                                    "restaurant": [],
+                                    "store": [],
+                                    "school": []
+                                    }
 
         for location_type, location_count in locations:
             for _ in range(location_count):
@@ -274,28 +296,42 @@ class Environment:
         self.accu_recover_counts = []
 
     def step(self, action):
-        global closed_location_type, mask_mandate, vaccine_version, vaccine_dev_version, vaccine_dev_time, vaccination_age
+        global closed_location_type, mask_mandate, vaccine_version, vaccine_dev_version, vaccine_dev_time, vaccination_age, gathering_size_limit, testing_delay
 
-        # perform different actions
-        #  close locations
         if action == 1:
-            closed_location_type.add("gym")
-        elif action == 2 :
-            closed_location_type.discard("gym")
-        elif action == 3:
-            closed_location_type.add("office")
-        elif action == 4:
-            closed_location_type.discard("office")
-        elif action == 5:
             mask_mandate = 1
-        elif action == 6:
+        elif action == 2:
             mask_mandate = 0
-        elif action == 7:
-            vaccination_age -= 5
-        # TODO: actions[3] limit gathering size. how to set limit? boolean? number in range?
-        # TODO: actions[4] testing delay. how to set test delay? boolean? number in range?
-        # TODO: action[5] set the age of people allowed to get vaccine. how to set test delay? boolean? number in range?
-        # TODO: action[6] set vaccination wellingness. how to set test delay? boolean? number in range?
+        elif action == 3 and vaccination_age > 0:
+            vaccination_age -= 1
+        elif action == 4 and gathering_size_limit > 10:
+            gathering_size_limit -= 10
+        elif action == 5 and gathering_size_limit < MAX_GATHER_SIZE:
+            gathering_size_limit += 10
+        elif action == 6 and testing_delay > 2:
+            testing_delay -= 1
+        elif action == 7 and testing_delay < MAX_TESTING_DELAY:
+            testing_delay += 1
+        elif action == 8:
+            closed_location_type.add("gym")
+        elif action == 9:
+            closed_location_type.discard("gym")
+        elif action == 10:
+            closed_location_type.add("office")
+        elif action == 11:
+            closed_location_type.discard("office")
+        elif action == 12:
+            closed_location_type.add("restaurant")
+        elif action == 13:
+            closed_location_type.discard("restaurant")
+        elif action == 14:
+            closed_location_type.add("store")
+        elif action == 15:
+            closed_location_type.discard("store")
+        elif action == 16:
+            closed_location_type.add("school")
+        elif action == 17:
+            closed_location_type.discard("school")
         
         # stats variables
         mutation_indicator = False
@@ -310,7 +346,7 @@ class Environment:
         for person in self.people:
             if not person.alive:
                 continue
-            action_return = person.act(self.time%24)
+            action_return = person.act(self.time%12)
             if action_return == 2:
                 vaccine_count += 1
                 healthy_count += 1
@@ -362,7 +398,7 @@ class Environment:
             print("covid", self.total_covid_counts[-1], "death", accu_death_count, "recover",\
                     accu_recover_count, "healthy", healthy_count, "latest vaccine count", vaccine_count )
             print("")
-        self.time += 1   
+        self.time += 1  
 
         # observation
         covid_version_case = [0]*OBSERVATION_COVID_VERSION
@@ -382,6 +418,10 @@ class Environment:
             vaccine_version_dose = [vaccine_log[-1] for vaccine_log in self.vaccine_counts] + [0]*(OBSERVATION_VACCINE_VERSION - len(self.vaccine_counts))
 
         observation = covid_version_case + [covid_version] + vaccine_version_dose + [vaccine_version] + [accu_death_count] + [accu_recover_count] + [healthy_count]
+        for location in self.locations:
+            if location.type != "home":
+                observation.append(location.people_count)
+                observation.append(location.covid + 1)
         observation = torch.FloatTensor(observation).unsqueeze(0)
         # reward
         reward = 0
@@ -393,12 +433,12 @@ class Environment:
                 reward = 0
 
         # done
-        done = self.total_covid_counts[-1] == 0
+        done = self.total_covid_counts[-1] == 0 or self.time >= 1000
 
         return observation, reward, done
     
     def print_time(self):
-        print("day", self.time//24, "time", self.time%24)
+        print("day", self.time//12, "time", self.time%12)
 
     def print_people(self, person_id):
         person = self.people[person_id]
@@ -408,9 +448,9 @@ class Environment:
         location = self.locations[location_id]
         print("location", location_id, "type " + location.type, "people count", location.people_count)
     
-    def plot(self):
+    def plot(self, graph_name):
+        plt.clf()
         time_line = [t for t in range(self.time)]
-        plt.close()
         for covid_version, covid_count in enumerate(self.covid_counts):
             plt.plot(time_line, covid_count, label = "covid version " + str(covid_version))
         plt.plot(time_line, self.accu_death_counts, label = "covid death")
@@ -418,7 +458,7 @@ class Environment:
         # plt.plot(time_line, self.accu_recover_counts, label = "covid recovery")
         # plt.plot(time_line, self.healthy_counts, label = "healthy people")
         plt.legend()
-        plt.savefig('test.png')
+        plt.savefig(graph_name+ ".png")
 # ==========================================================================================================
 #                                            END environment END                                           |
 # ==========================================================================================================
@@ -426,9 +466,18 @@ class Environment:
 # ==========================================================================================================
 #                                              START DQN START                                             |
 # ==========================================================================================================
+BATCH_SIZE = 256
+GAMMA = 0.999
+EPS_START = 0.9
+EPS_END = 0.05
+EPS_DECAY = 20000
+TARGET_UPDATE = 10
+MEMROY_SIZE = 500000
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(device)
+device_string = "cuda" if torch.cuda.is_available() else "cpu"
+
+RESULT_FIG_NAME = device_string+'_ml_reward.png'
 
 Transition = namedtuple('Transition',('state', 'action', 'next_state', 'reward'))
 
@@ -450,10 +499,11 @@ class DQN(nn.Module):
 
     def __init__(self, inputs, outputs):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(inputs, 256)
-        self.fc2 = nn.Linear(256, 512)
+        self.fc1 = nn.Linear(inputs, 2048)
+        self.fc2 = nn.Linear(2048, 512)
         self.fc3 = nn.Linear(512, 128)
-        self.fc4 = nn.Linear(128, outputs)
+        self.fc4 = nn.Linear(128, 32)
+        self.fc5 = nn.Linear(32, outputs)
 
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
@@ -462,27 +512,12 @@ class DQN(nn.Module):
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))
-        return self.fc4(x)
+        x = F.relu(self.fc4(x))
+        return self.fc5(x)
 
-BATCH_SIZE = 128
-GAMMA = 0.999
-EPS_START = 0.9
-EPS_END = 0.05
-EPS_DECAY = 20000
-TARGET_UPDATE = 10
 
-observation, _, _ = Environment([], []).step(0)
-reset_global_for_environment()
-input_size = list(observation.size())[1]
-policy_net = DQN(input_size, N_ACTIONS).to(device)
-target_net = DQN(input_size, N_ACTIONS).to(device)
-target_net.load_state_dict(policy_net.state_dict())
-target_net.eval()
 
-optimizer = optim.RMSprop(policy_net.parameters())
-memory = ReplayMemory(100000)
-
-def select_action(state, steps_done):
+def select_action(state, steps_done, policy_net):
     sample = random.random()
     eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps_done / EPS_DECAY)
     if sample > eps_threshold:
@@ -496,7 +531,6 @@ def select_action(state, steps_done):
 
 episode_durations = []
 def plot_durations():
-    plt.figure(2)
     plt.clf()
     durations_t = torch.tensor(episode_durations, dtype=torch.float)
     plt.title('Training...')
@@ -510,9 +544,9 @@ def plot_durations():
         plt.plot(means.numpy())
 
     plt.pause(0.001)  # pause a bit so that plots are updated
-    plt.savefig('test_cuda.png')
+    plt.savefig(RESULT_FIG_NAME)
 
-def optimize_model():
+def optimize_model(memory, optimizer, policy_net, target_net):
     if len(memory) < BATCH_SIZE:
         return
     transitions = memory.sample(BATCH_SIZE)
@@ -556,59 +590,123 @@ def optimize_model():
 #                                                END DQN END                                               |
 # ==========================================================================================================
 
-ACTION_TEMPLATE_1 = [(9, "office"), (17, "gym"), (20, "home")]
-ACTION_TEMPLATE_2 = [(9, "office"), (17, "home")]
+office_worker_1 = [(4, "office"), (9, "gym"), (10, "home")]
+office_worker_2 = [(4, "office"), (9, "home"), (10, "gym"), (11, "home")]
+office_worker_3 = [(4, "office"), (9, "store"), (10, "home")]
+office_worker_4 = [(4, "office"), (9, "home")]
+office_worker_5 = [(4, "office"), (9, "restaurant"), (10, "home")]
+gym_worker_1 = [(5, "gym"), (9, "home")]
+gym_worker_2 = [(9, "gym"), (11, "home")]
+restaurant_worker_1 = [(5, "restaurant"), (11, "home")]
+student_1 = [(4, "school"), (8, "home")]
+student_2 = [(4, "school"), (8, "restaurant"), (9, "home")]
+
+people_modifier = 1
 
 def main():
-    locations = [("gym", 10), ("office", 50), ("home", 4000)]
-    people = [(70, 20, ACTION_TEMPLATE_1, 5000), (40, 20, ACTION_TEMPLATE_2, 5000)] 
+    locations = [("gym", 50), ("office", 1000), ("home", 10000), ("restaurant", 100), ("store", 100), ("school", 10)]
+    people = [
+                (60, 20, office_worker_1, 1000*people_modifier),
+                (60, 30, office_worker_1, 1000*people_modifier), 
+                (60, 40, office_worker_1, 100*people_modifier), 
+
+                (60, 20, office_worker_2, 1000*people_modifier),
+                (60, 30, office_worker_2, 1000*people_modifier), 
+                (60, 40, office_worker_2, 100*people_modifier),
+
+                (30, 30, office_worker_3, 1000*people_modifier),
+                (30, 40, office_worker_3, 1000*people_modifier), 
+                (30, 50, office_worker_3, 500*people_modifier), 
+
+                (60, 20, office_worker_4, 1000*people_modifier),
+                (60, 30, office_worker_4, 1000*people_modifier), 
+                (60, 40, office_worker_4, 1000*people_modifier),
+                (30, 50, office_worker_4, 1000*people_modifier),
+
+                (60, 20, office_worker_4, 1000*people_modifier),
+                (60, 30, office_worker_4, 500*people_modifier), 
+                (60, 40, office_worker_4, 100*people_modifier),
+                (30, 50, office_worker_4, 500*people_modifier),
+
+                (70, 25, gym_worker_1, 100*people_modifier),
+                (70, 25, gym_worker_2, 100*people_modifier),
+
+                (70, 35, restaurant_worker_1, 100*people_modifier),
+                (70, 45, restaurant_worker_1, 100*people_modifier),
+                (70, 55, restaurant_worker_1, 100*people_modifier),
+
+                (50, 10, student_1, 1000*people_modifier),
+                (50, 10, student_2, 1000*people_modifier),
+                (50, 20, student_1, 1000*people_modifier),
+                (50, 20, student_2, 1000*people_modifier),
+                ] 
+
+    observation, _, _ = Environment(locations, people).step(0)
+    reset_global_for_environment()
+    input_size = list(observation.size())[1]
+    print(input_size)
+    policy_net = DQN(input_size, N_ACTIONS).to(device)
+    target_net = DQN(input_size, N_ACTIONS).to(device)
+    target_net.load_state_dict(policy_net.state_dict())
+    target_net.eval()
+
+    optimizer = optim.RMSprop(policy_net.parameters())
+    memory = ReplayMemory(MEMROY_SIZE)
     
+    if len(sys.argv) > 1 and sys.argv[1] == "train":
     #============================
     # training code             |
     #============================
-    steps_done = 0
-    num_episodes = 100
-    for i_episode in range(num_episodes):
-        env = Environment(locations, people)
-        reset_global_for_environment()
-        state, _, _ = env.step(0)
-        done = False
-        accumulate_reward = 0
-        while not done:
-            action = select_action(state, steps_done)
-            # print(action, steps_done, i_episode)
-            steps_done += 1
-            next_state, reward, done = env.step(action.item())
-            accumulate_reward += reward
-            reward = torch.tensor([reward], device=device)
-            if done:
-                next_state = None
-            memory.push(state, action, next_state, reward)
-            state = next_state
-            optimize_model()
-        episode_durations.append(accumulate_reward)
-        plot_durations()
-        if i_episode % TARGET_UPDATE == 0:
-            target_net.load_state_dict(policy_net.state_dict())
-        print(i_episode, steps_done)
-
+        steps_done = 0
+        num_episodes = 100
+        for i_episode in range(num_episodes):
+            env = Environment(locations, people)
+            reset_global_for_environment()
+            state, _, _ = env.step(0)
+            done = False
+            accumulate_reward = 0
+            while not done:
+                action = select_action(state, steps_done, policy_net)
+                # print(action, steps_done, i_episode)
+                steps_done += 1
+                next_state, reward, done = env.step(action.item())
+                accumulate_reward += reward
+                reward = torch.tensor([reward], device=device)
+                if done:
+                    next_state = None
+                memory.push(state, action, next_state, reward)
+                state = next_state
+                optimize_model(memory, optimizer, policy_net, target_net)
+            episode_durations.append(accumulate_reward)
+            plot_durations()
+            if i_episode % TARGET_UPDATE == 0:
+                target_net.load_state_dict(policy_net.state_dict())
+                env.plot(device_string + "_episode_" + str(i_episode))
+            print(i_episode, steps_done)
+    else:
     #============================
     # debug code                |
     #============================
-    # acc_reward = 0
-    # env = Environment(locations, people, True)
-    # while True:
-    #     # input("Hit Enter to continue...\n")
-    #     # if env.time and env.time % 120 == 0 and input("Hit Enter to continue...\n"):
-    #     #         env.plot()
-    #     #         continue
-    #     # actions = list(map(int, list(input("Enter your actions:"))))
-    #     _, reward, done = env.step(7)
-    #     acc_reward+=reward
-    #     print(reward)
-    #     if(done):
-    #         break
-    # print(acc_reward)
+        acc_reward = 0
+        env = Environment(locations, people, True)
+        while True:
+            # input("Hit Enter to continue...\n")
+            if env.time and env.time % 240 == 0:
+                env.print_time()
+                in_string = input("Hit Enter or input name:")
+                if in_string:
+                    env.plot(in_string)
+                    continue
+            # actions = list(map(int, list(input("Enter your actions:"))))
+            _, reward, done = env.step(random.randrange(N_ACTIONS))
+            acc_reward+=reward
+            # print(reward)
+            if(done):
+                break
+        print(acc_reward)
+        in_string = input("Hit Enter or input name:")
+        if in_string:
+            env.plot(in_string)
 
 if __name__ == "__main__":
     main()
