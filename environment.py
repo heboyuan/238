@@ -27,15 +27,18 @@ MUTATE_PROB = 0.000000001
 # household infection rate reference: https://www.cdc.gov/mmwr/volumes/69/wr/mm6944e1.htm
 # office infection rate reference: https://www.cdc.gov/coronavirus/2019-ncov/php/community-mitigation/non-healthcare-work-settings.html
 # gym infection rate reference: https://www.advisory.com/en/daily-briefing/2021/03/01/gym-infections
-# restaurant, store, school infection rate reference: ????????????????????????????????????????????????????????????????????
+# restaurant infection rate reference: ????????????????????????????????????????????????????????????????????
+# store infection rate reference: https://www.bmj.com/company/newsroom/high-rate-of-symptomless-covid-19-infection-among-grocery-store-workers/
+# school infection rate reference: https://www.cdc.gov/coronavirus/2019-ncov/science/science-briefs/transmission_k_12_schools.html
+# infection rate calculated as 7 days: (1-x)^84 = 1 - total_infection rate
 deno = 24
 INFECTION_RATE = {
-                    "home": 0.53/deno,
-                    "office": 0.25/deno,
-                    "gym": 0.68/deno,
-                    "restaurant": 0.80/deno,
-                    "store": 0.50/deno,
-                    "school": 0.60/deno
+                    "home": 0.00894
+                    "office": 0.003419
+                    "gym": 0.0134
+                    "restaurant": 0.00423
+                    "store": 0.00265
+                    "school": 0.000736
                     }
 # maximum possible age
 MAX_AGE = 100
