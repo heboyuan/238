@@ -357,7 +357,7 @@ class Environment:
             person.get_covid()
         
         if self.debug:
-            self.print_time()
+            print(self.time)
             print("covid version", self.covid_version, "vaccine version", vaccine_version)
             print("covid", self.total_covid_counts[-1], "death", accu_death_count, "recover",\
                     accu_recover_count, "healthy", healthy_count, "latest vaccine count", vaccine_count )
@@ -428,6 +428,7 @@ class Environment:
 # ==========================================================================================================
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 
 Transition = namedtuple('Transition',('state', 'action', 'next_state', 'reward'))
 
@@ -449,9 +450,10 @@ class DQN(nn.Module):
 
     def __init__(self, inputs, outputs):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(inputs, 128)
-        self.fc2 = nn.Linear(128, 128)
-        self.fc3 = nn.Linear(128, outputs)
+        self.fc1 = nn.Linear(inputs, 256)
+        self.fc2 = nn.Linear(256, 512)
+        self.fc3 = nn.Linear(512, 128)
+        self.fc4 = nn.Linear(128, outputs)
 
     # Called with either one element to determine next action, or a batch
     # during optimization. Returns tensor([[left0exp,right0exp]...]).
@@ -459,7 +461,8 @@ class DQN(nn.Module):
         x = x.to(device)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        return self.fc3(x)
+        x = F.relu(self.fc3(x))
+        return self.fc4(x)
 
 BATCH_SIZE = 128
 GAMMA = 0.999
@@ -477,7 +480,7 @@ target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
 optimizer = optim.RMSprop(policy_net.parameters())
-memory = ReplayMemory(10000)
+memory = ReplayMemory(100000)
 
 def select_action(state, steps_done):
     sample = random.random()
@@ -498,7 +501,7 @@ def plot_durations():
     durations_t = torch.tensor(episode_durations, dtype=torch.float)
     plt.title('Training...')
     plt.xlabel('Episode')
-    plt.ylabel('Duration')
+    plt.ylabel('Reward')
     plt.plot(durations_t.numpy())
     # Take 100 episode averages and plot them too
     if len(durations_t) >= 100:
@@ -507,7 +510,7 @@ def plot_durations():
         plt.plot(means.numpy())
 
     plt.pause(0.001)  # pause a bit so that plots are updated
-    plt.savefig('test.png')
+    plt.savefig('test_cuda.png')
 
 def optimize_model():
     if len(memory) < BATCH_SIZE:
@@ -564,7 +567,7 @@ def main():
     # training code             |
     #============================
     steps_done = 0
-    num_episodes = 10
+    num_episodes = 100
     for i_episode in range(num_episodes):
         env = Environment(locations, people)
         reset_global_for_environment()
@@ -573,7 +576,7 @@ def main():
         accumulate_reward = 0
         while not done:
             action = select_action(state, steps_done)
-            print(action, steps_done, i_episode)
+            # print(action, steps_done, i_episode)
             steps_done += 1
             next_state, reward, done = env.step(action.item())
             accumulate_reward += reward
@@ -587,10 +590,12 @@ def main():
         plot_durations()
         if i_episode % TARGET_UPDATE == 0:
             target_net.load_state_dict(policy_net.state_dict())
+        print(i_episode, steps_done)
 
     #============================
     # debug code                |
     #============================
+    # acc_reward = 0
     # env = Environment(locations, people, True)
     # while True:
     #     # input("Hit Enter to continue...\n")
@@ -598,10 +603,12 @@ def main():
     #     #         env.plot()
     #     #         continue
     #     # actions = list(map(int, list(input("Enter your actions:"))))
-    #     _, reward, done = env.step(random.randrange(8))
+    #     _, reward, done = env.step(7)
+    #     acc_reward+=reward
     #     print(reward)
     #     if(done):
     #         break
+    # print(acc_reward)
 
 if __name__ == "__main__":
     main()

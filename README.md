@@ -1,4 +1,4 @@
-- [x] investigate DQN
+- [x] ~investigate DQN~
 - [x] ~~recovery related to age gender https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7229949/~~
 - [x] ~~death related to age gender~~
 - [x] ~~vaccination~~
@@ -10,6 +10,6 @@
     - [x] ~~vaccination related~~!still have todos!
     - [ ] more ?
 - [x] ~~implement mass initialization system~~
-- [ ] openai gym style observation and reward
+- [x] ~~openai gym style observation and reward~~
 - [x] accurate infection rate, mutate prob, etc
 - [x] add visualized output
