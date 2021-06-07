@@ -103,7 +103,7 @@ vaccine_version = -1
 vaccine_dev_version = -1
 vaccine_dev_time = 0
 vaccination_age = MAX_AGE
-vaccination_wellingness = 0.5
+vaccination_wellingness = 0
 def reset_global_for_environment():
     global closed_location_type, mask_mandate, gathering_size_limit, testing_delay, vaccine_version,\
             vaccine_dev_version, vaccine_dev_time, vaccination_age, vaccination_wellingness
@@ -436,7 +436,7 @@ class Environment:
                 reward = 0
 
         # done
-        done = self.total_covid_counts[-1] == 0 or self.time >= 1000
+        done = self.total_covid_counts[-1] == 0 or self.time >= 1500
 
         return observation, reward, done
     
@@ -607,7 +607,7 @@ student_2 = [(4, "school"), (8, "restaurant"), (9, "home")]
 people_modifier = 1
 
 def main():
-    locations = [("gym", 50), ("office", 1000), ("home", 10000), ("restaurant", 100), ("store", 100), ("school", 10)]
+    locations = [("gym", 5), ("office", 100), ("home", 5000), ("restaurant", 20), ("store", 20), ("school", 5)]
     people = [
                 (60, 20, office_worker_1, 1000*people_modifier),
                 (60, 30, office_worker_1, 1000*people_modifier), 
