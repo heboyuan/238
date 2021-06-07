@@ -33,13 +33,13 @@ MUTATE_PROB = 0.000000001
 # infection rate calculated as 7 days: (1-x)^84 = 1 - total_infection rate
 deno = 24
 INFECTION_RATE = {
-                    "home": 0.00894
-                    "office": 0.003419
-                    "gym": 0.0134
-                    "restaurant": 0.00423
-                    "store": 0.00265
+                    "home": 0.00894,
+                    "office": 0.003419,
+                    "gym": 0.0134,
+                    "restaurant": 0.00423,
+                    "store": 0.00265,
                     "school": 0.000736
-                    }
+                }
 # maximum possible age
 MAX_AGE = 100
 # vaccine development cycle
