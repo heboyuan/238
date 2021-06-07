@@ -418,10 +418,36 @@ class Environment:
             vaccine_version_dose = [vaccine_log[-1] for vaccine_log in self.vaccine_counts] + [0]*(OBSERVATION_VACCINE_VERSION - len(self.vaccine_counts))
 
         observation = [self.time] + covid_version_case + [covid_version] + vaccine_version_dose + [vaccine_version] + [accu_death_count] + [accu_recover_count] + [healthy_count]
+        # for location in self.locations:
+        #     if location.type != "home":
+        #         observation.append(location.people_count)
+        #         observation.append(location.covid + 1)
+
+
+        #                      home office gym restaurant store school
+        locations_observation= [0,0,  0,0, 0,0,   0,0,     0,0,   0,0]
         for location in self.locations:
-            if location.type != "home":
-                observation.append(location.people_count)
-                observation.append(location.covid + 1)
+            if location.type == "home":
+                locations_observation[0] += location.people_count
+                locations_observation[1] = max(locations_observation[1], location.covid + 1)
+            elif location.type == "office":
+                locations_observation[2] += location.people_count
+                locations_observation[3] = max(locations_observation[3], location.covid + 1)
+            elif location.type == "gym":
+                locations_observation[4] += location.people_count
+                locations_observation[5] = max(locations_observation[5], location.covid + 1)
+            elif location.type == "restaurant":
+                locations_observation[6] += location.people_count
+                locations_observation[7] = max(locations_observation[7], location.covid + 1)
+            elif location.type == "store":
+                locations_observation[8] += location.people_count
+                locations_observation[9] = max(locations_observation[9], location.covid + 1)
+            elif location.type == "school":
+                locations_observation[10] += location.people_count
+                locations_observation[11] = max(locations_observation[11], location.covid + 1)
+        observation += locations_observation
+
+
         observation = torch.FloatTensor(observation).unsqueeze(0)
         # reward
         reward = 0
@@ -466,13 +492,13 @@ class Environment:
 # ==========================================================================================================
 #                                              START DQN START                                             |
 # ==========================================================================================================
-BATCH_SIZE = 256
+BATCH_SIZE = 512
 GAMMA = 0.999
 EPS_START = 0.9
 EPS_END = 0.05
-EPS_DECAY = 20000
+EPS_DECAY = 50000
 TARGET_UPDATE = 10
-MEMROY_SIZE = 500000
+MEMROY_SIZE = 1000000
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device_string = "cuda" if torch.cuda.is_available() else "cpu"
@@ -499,9 +525,15 @@ class DQN(nn.Module):
 
     def __init__(self, inputs, outputs):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(inputs, 2048)
-        self.fc2 = nn.Linear(2048, 512)
-        self.fc3 = nn.Linear(512, 128)
+        # self.fc1 = nn.Linear(inputs, 2048)
+        # self.fc2 = nn.Linear(2048, 512)
+        # self.fc3 = nn.Linear(512, 128)
+        # self.fc4 = nn.Linear(128, 32)
+        # self.fc5 = nn.Linear(32, outputs)
+
+        self.fc1 = nn.Linear(inputs, 128)
+        self.fc2 = nn.Linear(128, 256)
+        self.fc3 = nn.Linear(256, 128)
         self.fc4 = nn.Linear(128, 32)
         self.fc5 = nn.Linear(32, outputs)
 
@@ -544,7 +576,7 @@ def plot_durations():
         plt.plot(means.numpy())
 
     plt.pause(0.001)  # pause a bit so that plots are updated
-    plt.savefig(RESULT_FIG_NAME)
+    plt.savefig("2m_" + RESULT_FIG_NAME)
 
 def optimize_model(memory, optimizer, policy_net, target_net):
     if len(memory) < BATCH_SIZE:
@@ -658,7 +690,7 @@ def main():
     # training code             |
     #============================
         steps_done = 0
-        num_episodes = 100
+        num_episodes = 500
         for i_episode in range(num_episodes):
             env = Environment(locations, people)
             reset_global_for_environment()
@@ -681,7 +713,7 @@ def main():
             plot_durations()
             if i_episode % TARGET_UPDATE == 0:
                 target_net.load_state_dict(policy_net.state_dict())
-                env.plot(device_string + "_episode_" + str(i_episode))
+                env.plot("2m_" + device_string + "_episode_" + str(i_episode))
             print(i_episode, steps_done)
     else:
     #============================
