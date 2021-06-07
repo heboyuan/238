@@ -270,7 +270,7 @@ class Environment:
                 self.locations.append(loc)
         people_home_index = 0
         for male_percentage, age, action_source, people_count in people:
-            for _ in range(people_count):
+            for _ in range(int(people_count)):
                 if people_home_index < len(locations_construction["home"]):
                     home = locations_construction["home"][people_home_index]
                     people_home_index += 1
@@ -505,6 +505,7 @@ MEMROY_SIZE = 1000000
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device_string = "cuda" if torch.cuda.is_available() else "cpu"
+print(device)
 
 RESULT_FIG_NAME = device_string+'_ml_reward.png'
 
@@ -579,7 +580,7 @@ def plot_durations():
         plt.plot(means.numpy())
 
     plt.pause(0.001)  # pause a bit so that plots are updated
-    plt.savefig("2m_" + RESULT_FIG_NAME)
+    plt.savefig("1_" + RESULT_FIG_NAME)
 
 def optimize_model(memory, optimizer, policy_net, target_net):
     if len(memory) < BATCH_SIZE:
@@ -636,7 +637,7 @@ restaurant_worker_1 = [(5, "restaurant"), (11, "home")]
 student_1 = [(4, "school"), (8, "home")]
 student_2 = [(4, "school"), (8, "restaurant"), (9, "home")]
 
-people_modifier = 1
+people_modifier = 0.5
 
 def main():
     locations = [("gym", 5), ("office", 100), ("home", 5000), ("restaurant", 20), ("store", 20), ("school", 5)]
@@ -716,7 +717,7 @@ def main():
             plot_durations()
             if i_episode % TARGET_UPDATE == 0:
                 target_net.load_state_dict(policy_net.state_dict())
-                env.plot("2m_" + device_string + "_episode_" + str(i_episode))
+                env.plot("1_" + device_string + "_episode_" + str(i_episode))
             print(i_episode, steps_done)
     else:
     #============================
