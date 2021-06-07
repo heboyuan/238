@@ -45,16 +45,6 @@ MAX_AGE = 100
 # vaccine development cycle
 MAX_VACCINE_DEVELOPMENT_TIME = 1080
 
-# economic reward rate
-ECONOMIC_RATE = {
-                    "home": 0,
-                    "office": 0.1,
-                    "gym": 0.05,
-                    "restaurant": 0.2,
-                    "store": 0.3,
-                    "school": 0.04
-}
-
 # total death rate by age referenced by
 # https://www.cdph.ca.gov/Programs/CID/DCDC/Pages/COVID-19/COVID-19-Cases-by-Age-Group.aspx
 death_rate = dict()
@@ -274,7 +264,7 @@ class Environment:
                                     }
 
         for location_type, location_count in locations:
-            for _ in range(int(location_count)):
+            for _ in range(location_count):
                 loc = Location(location_type)
                 locations_construction[location_type].append(loc)
                 self.locations.append(loc)
@@ -470,8 +460,6 @@ class Environment:
             reward = self.total_covid_counts[-2] - self.total_covid_counts[-1]
             if reward > 0:
                 reward = 0
-            for location in self.locations:
-                reward += ECONOMIC_RATE[location.type] * location.people_count
 
         # done
         done = self.total_covid_counts[-1] == 0 or self.time >= 1500
@@ -499,7 +487,7 @@ class Environment:
         # plt.plot(time_line, self.accu_recover_counts, label = "covid recovery")
         # plt.plot(time_line, self.healthy_counts, label = "healthy people")
         plt.legend()
-        plt.savefig("3_"+graph_name+ ".png")
+        plt.savefig(graph_name+ ".png")
 # ==========================================================================================================
 #                                            END environment END                                           |
 # ==========================================================================================================
@@ -592,7 +580,7 @@ def plot_durations():
         plt.plot(means.numpy())
 
     plt.pause(0.001)  # pause a bit so that plots are updated
-    plt.savefig("3_" + RESULT_FIG_NAME)
+    plt.savefig("1_" + RESULT_FIG_NAME)
 
 def optimize_model(memory, optimizer, policy_net, target_net):
     if len(memory) < BATCH_SIZE:
@@ -652,7 +640,7 @@ student_2 = [(4, "school"), (8, "restaurant"), (9, "home")]
 people_modifier = 0.5
 
 def main():
-    locations = [("gym", 6*people_modifier), ("office", 100*people_modifier), ("home", 5000*people_modifier), ("restaurant", 20*people_modifier), ("store", 20*people_modifier), ("school", 6*people_modifier)]
+    locations = [("gym", 5), ("office", 100), ("home", 5000), ("restaurant", 20), ("store", 20), ("school", 5)]
     people = [
                 (60, 20, office_worker_1, 1000*people_modifier),
                 (60, 30, office_worker_1, 1000*people_modifier), 
